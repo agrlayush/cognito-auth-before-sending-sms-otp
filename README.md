@@ -1,7 +1,3 @@
-Here’s a sample `README.md` file formatted with proper markdown that you can use to publish your solution as an open-source repository.
-
----
-
 # AWS Cognito OTP Authentication with Pre-auth Lambda Token Validation
 
 This repository contains an implementation of an AWS Cognito-based user authentication system using phone numbers and one-time passwords (OTP). The OTP is delivered via SMS to users. To safeguard the system from bots that may trigger multiple OTP requests, a token-based validation process is implemented using AWS Lambda, DynamoDB, and API Gateway.
