@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognito SMS Authentication</title>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.928.0.min.js"></script>
+    <script src="https://unpkg.com/amazon-cognito-identity-js@5.2.3/dist/amazon-cognito-identity.min.js"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1>Cognito SMS Authentication</h1>
+    <div id="phoneForm">
+        <!-- <input type="text" id="userName" placeholder="Your name"> -->
+        <input type="tel" id="phoneNumber" placeholder="Phone number (e.g., +14155552671)">
+        <button onclick="sendCode()">Send Code</button>
+    </div>
+    <div id="otpForm" style="display: none;">
+        <input type="text" id="otpCode" placeholder="OTP Code">
+        <button onclick="verifyCode()">Verify Code</button>
+    </div>
+    <div id="loggedIn" style="display: none;">
+        <h2>Logged In!</h2>
+        <button onclick="makeAuthenticatedRequest()">Make Authenticated Request</button>
+    </div>
+
+    <script>
+
+        async function getToken() {
+            const response = await fetch(get_token_url);
+            const data = await response.json();
+            return data.token;
+        }
+
+        let singleUseToken;
+
+        window.onload = async function() {
+            singleUseToken = await getToken();
+        }
+
+        // Configure your AWS credentials and Cognito User Pool
+        const poolData = {
+            UserPoolId: user_pool_id,
+            ClientId: cognito_client_id
+        };
+
+        const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+        let cognitoUser;
+
+        function sendCode() {
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            // if (!validatePhoneNumber(phoneNumber)) {
+            //     alert("Please enter a valid phone number in E.164 format (e.g., +14155552671)");
+            //     return;
+            // }
+
+            const attributeList = [];
+            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "phone_number", Value: phoneNumber }));
+            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "custom:single_use_token", Value: singleUseToken }));
+            // Add the name.formatted attribute
+            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "name", Value: "User" }));
+
+            userPool.signUp(phoneNumber, 'dummy-password', attributeList, null, (err, result) => {
+                if (err) {
+                    console.error(err);
+                    alert(err.message || JSON.stringify(err));
+                    return;
+                }
+                cognitoUser = result.user;
+                document.getElementById('phoneForm').style.display = 'none';
+                document.getElementById('otpForm').style.display = 'block';
+            });
+        }
+
+        function verifyCode() {
+            const otpCode = document.getElementById('otpCode').value;
+
+            cognitoUser.confirmRegistration(otpCode, true, (err, result) => {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                document.getElementById('otpForm').style.display = 'none';
+                document.getElementById('loggedIn').style.display = 'block';
+            });
+        }
+
+        function makeAuthenticatedRequest() {
+            cognitoUser.getSession((err, session) => {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                const token = session.getIdToken().getJwtToken();
+                fetch(authentication_validation_url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: 'Hello from authenticated user!' })
+                })
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+            });
+        }
+    </script>
+</body>
+</html>
