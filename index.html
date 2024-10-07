@@ -25,17 +25,13 @@
     </div>
 
     <script>
-
-        async function getToken() {
-            const response = await fetch(get_token_url);
-            const data = await response.json();
-            return data.token;
-        }
-
         let singleUseToken;
 
         window.onload = async function() {
-            singleUseToken = await getToken();
+            const response = await fetch(get_token_url);
+            const data = await response.json();
+            singleUseToken = data.token;
+            // timestamp = data.timestamp; // req when using no-dynamo
         }
 
         // Configure your AWS credentials and Cognito User Pool
@@ -46,20 +42,25 @@
 
         const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
         let cognitoUser;
+        function validatePhoneNumber(phoneNumber) {
+            // Regular expression for E.164 format validation
+            const e164Pattern = /^\+\d{1,3}\d{1,14}$/;
+            return e164Pattern.test(phoneNumber);
+        }
 
         function sendCode() {
             const phoneNumber = document.getElementById('phoneNumber').value;
-            // if (!validatePhoneNumber(phoneNumber)) {
-            //     alert("Please enter a valid phone number in E.164 format (e.g., +14155552671)");
-            //     return;
-            // }
+            if (!validatePhoneNumber(phoneNumber)) {
+                alert("Please enter a valid phone number in E.164 format (e.g., +14155552671)");
+                return;
+            }
 
             const attributeList = [];
             attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "phone_number", Value: phoneNumber }));
-            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "custom:single_use_token", Value: singleUseToken }));
-            // Add the name.formatted attribute
-            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "name", Value: "User" }));
-
+            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "custom:custom-token", Value: singleUseToken }));
+            // attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "custom:timestamp", Value: timestamp.toString() })); // req when using no-dynamo
+            attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "name", Value: phoneNumber }));
+            console.log(attributeList)
             userPool.signUp(phoneNumber, 'dummy-password', attributeList, null, (err, result) => {
                 if (err) {
                     console.error(err);
